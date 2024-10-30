@@ -8,4 +8,4 @@ Pengembangan program enkripsi dan dekripsi DES dari Tugas 1:
 
 # Pembagian Tugas
 - Almira Fidela Soehartanto Putri (5025221222) -> client
-- Azizah Elok Harvianti (5025221243) -> server
+- Azizah Elok Harvianti (5025221243) -> server dan memperbaiki beberapa kodingan di DES
