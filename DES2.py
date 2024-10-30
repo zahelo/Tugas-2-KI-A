@@ -181,7 +181,7 @@ def encrypt(pt, rkb, rk):
             row = convertBintoDec(int(segment[0] + segment[3]))  # Mengambil bit pertama dan terakhir
             col = convertBintoDec(int(segment[1:3]))             # Mengambil dua bit tengah
             val = sbox[j % len(sbox)][row][col]  # modulo untnuk sbox
-            sbox_str = sbox_str + dec2bin(val)
+            sbox_str = sbox_str + convertDectoBin(val)
 
         # XOR left dan hasil substitusi S-box
         result = xor(left, sbox_str)
@@ -198,9 +198,6 @@ def encrypt(pt, rkb, rk):
     # Final permutation untuk mendapatkan ciphertext
     cipher_text = permute(combine, final_perm, 64)
     return cipher_text
-
-
-pt = input("Masukkan plaintext berupa 16bit heksadesimal: ")
 
 def genKey():
     key = ''.join(random.choice('0123456789ABCDEF') for _ in range(16))
@@ -225,6 +222,29 @@ keyp = [57, 49, 41, 33, 25, 17, 9,
 		14, 6, 61, 53, 45, 37, 29,
 		21, 13, 5, 28, 20, 12, 4]
 
+def encryptLongmsg(pt, rkb, rk):
+    # Split plaintext into 64-bit (16-character hex) blocks
+    blocks = [pt[i:i+16] for i in range(0, len(pt), 16)]
+    encrMsg = ""
+    for block in blocks:
+        # Pad the block to 16 characters if it's shorter
+        if len(block) < 16:
+            block = block.ljust(16, '0')
+        # Encrypt the block and append to the encrypted message
+        encrBlock = encrypt(block, rkb, rk)
+        encrMsg += convertBintoHex(encrBlock)
+    return encrMsg
+
+def decryptLongmsg(encrMsg, rkb_rev, rk_rev):
+    # Split encrypted message into 64-bit (16-character hex) blocks
+    blocks = [encrMsg[i:i+16] for i in range(0, len(encrMsg), 16)]
+    decrMsg = ""
+    for block in blocks:
+        # Decrypt the block and convert back to hex
+        decrBlock = encrypt(block, rkb_rev, rk_rev)  # DES uses the same function for decryption
+        decrMsg += convertBintoHex(decrBlock)
+    return decrMsg
+
 key = genKey()
 print("Generated Key:", key)
 
@@ -234,48 +254,47 @@ print("Permuted Key:", permutedKey)
 key = convertHextoBin(key)
 
 shift_table = [1, 1, 2, 2,
-			   2, 2, 2, 2,
-			   1, 2, 2, 2,
-			   2, 2, 2, 1]
+               2, 2, 2, 2,
+               1, 2, 2, 2,
+               2, 2, 2, 1]
 
-# kompresi 56 bit ke 48 bit
+# Compression and permutation tables for the keys
 key_comp = [14, 17, 11, 24, 1, 5,
-			3, 28, 15, 6, 21, 10,
-			23, 19, 12, 4, 26, 8,
-			16, 7, 27, 20, 13, 2,
-			41, 52, 31, 37, 47, 55,
-			30, 40, 51, 45, 33, 48,
-			44, 49, 39, 56, 34, 53,
-			46, 42, 50, 36, 29, 32]
+            3, 28, 15, 6, 21, 10,
+            23, 19, 12, 4, 26, 8,
+            16, 7, 27, 20, 13, 2,
+            41, 52, 31, 37, 47, 55,
+            30, 40, 51, 45, 33, 48,
+            44, 49, 39, 56, 34, 53,
+            46, 42, 50, 36, 29, 32]
 
-# Splitting
-left = key[0:28] # rkb untuk binary
-right = key[28:56] # rk untuk hex
+# Splitting and generating the keys for rounds
+left = key[0:28]  # rkb for binary
+right = key[28:56]  # rk for hex
 rkb = []
 rk = []
 
 for i in range(0, 16):
-	
-	left = shift_left(left, shift_table[i])
-	right = shift_left(right, shift_table[i])
- 
-	combine_str = left + right
+    left = shift_left(left, shift_table[i])
+    right = shift_left(right, shift_table[i])
+    combine_str = left + right
+    round_key = permute(combine_str, key_comp, 48)
+    rkb.append(round_key)
+    rk.append(convertBintoHex(round_key))
 
-	# Compression key dari 56-bits ke 48 bits
-	round_key = permute(combine_str, key_comp, 48)
-
-	rkb.append(round_key)
-	rk.append(convertBintoHex(round_key))
+pt = input("Masukkan plaintext berupa 16bit heksadesimal: ")
 
 print("Encryption")
+cipher_text = encryptLongmsg(pt, rkb, rk)
+print("Cipher Text:", cipher_text)
 
-cipher_text = convertBintoHex(encrypt(pt, rkb, rk))
-print("Cipher Text : ", cipher_text)
-
-print("Decryption")
+# Reverse keys for decryption
 rkb_rev = rkb[::-1]
 rk_rev = rk[::-1]
 
-text = convertBintoHex(encrypt(cipher_text, rkb_rev, rk_rev))
-print("Plain Text : ", text)
+print("Decryption")
+decrypted_text = decryptLongmsg(cipher_text, rkb_rev, rk_rev)
+print("Decrypted Text:", decrypted_text)
+
+
 
