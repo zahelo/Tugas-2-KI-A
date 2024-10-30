@@ -165,7 +165,7 @@ def encrypt(pt, rkb, rk):
 
     # Initial Permutation
     pt = permute(pt, initial_perm, 64)
-    print("After initial permutation", convertBintoHex(pt))
+    # print("After initial permutation", convertBintoHex(pt))
 
     # Splitting
     left = pt[0:32]
@@ -190,7 +190,7 @@ def encrypt(pt, rkb, rk):
         # Swapper
         if(i != 15):
             left, right = right, left
-        print("Round ", i + 1, " ", convertBintoHex(left), " ", convertBintoHex(right), " ", rk[i])
+        # print("Round ", i + 1, " ", convertBintoHex(left), " ", convertBintoHex(right), " ", rk[i])
 
     # Kombinasi akhir
     combine = left + right
@@ -213,14 +213,59 @@ def permut(key, perm_table):
 
 random_perm_table = random.sample(range(1, 65), 64)  
 
-keyp = [57, 49, 41, 33, 25, 17, 9,
-		1, 58, 50, 42, 34, 26, 18,
-		10, 2, 59, 51, 43, 35, 27,
-		19, 11, 3, 60, 52, 44, 36,
-		63, 55, 47, 39, 31, 23, 15,
-		7, 62, 54, 46, 38, 30, 22,
-		14, 6, 61, 53, 45, 37, 29,
-		21, 13, 5, 28, 20, 12, 4]
+def generateRoundKeys(key):
+    key = convertHextoBin(key)
+    # PC-1 table: untuk mempermute dan mengurangi key dari 64-bit ke 56-bit
+    pc1 = [57, 49, 41, 33, 25, 17, 9,
+           1, 58, 50, 42, 34, 26, 18,
+           10, 2, 59, 51, 43, 35, 27,
+           19, 11, 3, 60, 52, 44, 36,
+           63, 55, 47, 39, 31, 23, 15,
+           7, 62, 54, 46, 38, 30, 22,
+           14, 6, 61, 53, 45, 37, 29,
+           21, 13, 5, 28, 20, 12, 4]
+
+    # PC-2 table: untuk mengurangi key dari 56-bit ke 48-bit
+    pc2 = [14, 17, 11, 24, 1, 5,
+           3, 28, 15, 6, 21, 10,
+           23, 19, 12, 4, 26, 8,
+           16, 7, 27, 20, 13, 2,
+           41, 52, 31, 37, 47, 55,
+           30, 40, 51, 45, 33, 48,
+           44, 49, 39, 56, 34, 53,
+           46, 42, 50, 36, 29, 32]
+
+    # Tabel shift untuk setiap round
+    shift_table = [1, 1, 2, 2,
+                   2, 2, 2, 2,
+                   1, 2, 2, 2,
+                   2, 2, 2, 1]
+
+    # Permutasi key dengan PC-1
+    permuted_key = permute(key, pc1, 56)
+
+    # Bagi key menjadi bagian kiri dan kanan masing-masing 28-bit
+    left = permuted_key[:28]
+    right = permuted_key[28:]
+
+    # Array untuk menyimpan round keys  bentuk biner dan heksadesimal
+    rkb = []  
+    rk = []   
+
+    # Generate 16 round keys
+    for i in range(16):
+        # Shift kiri sesuai shift_table
+        left = shift_left(left, shift_table[i])
+        right = shift_left(right, shift_table[i])
+
+        combined_key = left + right
+
+        round_key = permute(combined_key, pc2, 48)
+        
+        rkb.append(round_key)
+        rk.append(convertBintoHex(round_key))
+
+    return rkb, rk
 
 def encryptLongmsg(pt, rkb, rk):
     # Split plaintext into 64-bit (16-character hex) blocks
@@ -245,56 +290,18 @@ def decryptLongmsg(encrMsg, rkb_rev, rk_rev):
         decrMsg += convertBintoHex(decrBlock)
     return decrMsg
 
-key = genKey()
-print("Generated Key:", key)
-
-permutedKey = permut(key, random_perm_table)
-print("Permuted Key:", permutedKey)
-
-key = convertHextoBin(key)
-
-shift_table = [1, 1, 2, 2,
-               2, 2, 2, 2,
-               1, 2, 2, 2,
-               2, 2, 2, 1]
-
-# Compression and permutation tables for the keys
-key_comp = [14, 17, 11, 24, 1, 5,
-            3, 28, 15, 6, 21, 10,
-            23, 19, 12, 4, 26, 8,
-            16, 7, 27, 20, 13, 2,
-            41, 52, 31, 37, 47, 55,
-            30, 40, 51, 45, 33, 48,
-            44, 49, 39, 56, 34, 53,
-            46, 42, 50, 36, 29, 32]
-
-# Splitting and generating the keys for rounds
-left = key[0:28]  # rkb for binary
-right = key[28:56]  # rk for hex
-rkb = []
-rk = []
-
-for i in range(0, 16):
-    left = shift_left(left, shift_table[i])
-    right = shift_left(right, shift_table[i])
-    combine_str = left + right
-    round_key = permute(combine_str, key_comp, 48)
-    rkb.append(round_key)
-    rk.append(convertBintoHex(round_key))
-
-pt = input("Masukkan plaintext berupa 16bit heksadesimal: ")
-
-print("Encryption")
-cipher_text = encryptLongmsg(pt, rkb, rk)
-print("Cipher Text:", cipher_text)
-
-# Reverse keys for decryption
-rkb_rev = rkb[::-1]
-rk_rev = rk[::-1]
-
-print("Decryption")
-decrypted_text = decryptLongmsg(cipher_text, rkb_rev, rk_rev)
-print("Decrypted Text:", decrypted_text)
+# key = input("Masukkan plaintext berupa 16bit heksadesimal: ")
+# rkb, rk = generateRoundKeys(key)
 
 
+# print("Encryption")
+# cipher_text = encryptLongmsg(key, rkb, rk)
+# print("Cipher Text:", cipher_text)
 
+# # Reverse keys for decryption
+
+# rkb_rev = rkb[::-1]
+# rk_rev = rk[::-1]
+# print("Decryption")
+# decrypted_text = decryptLongmsg(cipher_text, rkb_rev, rk_rev)
+# print("Decrypted Text:", decrypted_text)
